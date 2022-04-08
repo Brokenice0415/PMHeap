@@ -448,10 +448,10 @@ void heap_mgr_init(HeapManager* hmgr, int limit) {
   // hmgr->valid = (bool*)random_mmap(round_up_page_size(limit));
   // hmgr->usable_size = (size_t*)random_mmap(round_up_page_size(limit * sizeof(size_t)));
   // hmgr->size = (int*)random_mmap(round_up_page_size(limit * sizeof(int)));
-  hmgr->freed = (bool*)pm_alloc(round_up_page_size(limit));
-  hmgr->valid = (bool*)pm_alloc(round_up_page_size(limit));
-  hmgr->usable_size = (size_t*)pm_alloc(round_up_page_size(limit * sizeof(size_t)));
-  hmgr->size = (int*)pm_alloc(round_up_page_size(limit * sizeof(int)));
+  hmgr->freed = (bool*)pm_alloc(g_pool, round_up_page_size(limit));
+  hmgr->valid = (bool*)pm_alloc(g_pool, round_up_page_size(limit));
+  hmgr->usable_size = (size_t*)pm_alloc(g_pool, round_up_page_size(limit * sizeof(size_t)));
+  hmgr->size = (int*)pm_alloc(g_pool, round_up_page_size(limit * sizeof(int)));
 }
 
 void* heap_mgr_get_heap(HeapManager* hmgr, int* index) {
@@ -1046,11 +1046,11 @@ void fuzz_fill_heap(HeapManager* hmgr, ShadowMemory* buffer, Command* cmd) {
     END_STMT;
     
     BEGIN_STMT;
-    STMT("pmemobj_memcpy_persist(pool, (void*)&(((uintptr_t*)p[%d])+%d), &tmp, sizeof(tmp))", index, i);
+    STMT("pmemobj_memcpy_persist(pool, (void*)(((uintptr_t*)p[%d])+%d), &tmp, sizeof(tmp))", index, i);
 
     if (do_action_heap(h))
       //*((uintptr_t*)h + i) = value;
-      pmemobj_memcpy_persist(g_pool, (void*)&((uintptr_t*)h + i), &value, sizeof(value));
+      pmemobj_memcpy_persist(g_pool, (void*)&(*((uintptr_t*)h + i)), &value, sizeof(value));
     END_STMT;
   }
 
@@ -1227,7 +1227,7 @@ void fuzz_vuln(HeapManager* hmgr,
 
         BEGIN_STMT;
         // STMT("((uintptr_t*)p[%d])[%d] = ", index, i);
-        STMT("pmemobj_memcpy_persist(pool, (void*)&(((uintptr_t*)p[%d])+%d), &tmp, sizeof(tmp))", index, i);
+        STMT("pmemobj_memcpy_persist(pool, (void*)(((uintptr_t*)p[%d])+%d), &tmp, sizeof(tmp))", index, i);
         
         if (do_action_heap(h)) {
           if (first) first = false;
