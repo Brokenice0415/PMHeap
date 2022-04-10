@@ -145,10 +145,11 @@ AllocatorInfo  g_allocator_info = {-1, -1, -1, -1};
 #define POOL_NAME "archeap_pmdk.data"
 #define LAYOUT    "ARCHEAPPM"
 PMEMobjpool * g_pool;
-PMEMoid       g_roots;
+PMEMoid       g_root;
 
 typedef struct PMDK_ROOTS {
-  void* roots[1024];
+  PMEMoid p[0x1000];
+  uintptr_t buf[0x1000];
 };
 
 // NOTE: MAX_NUM_SIZES should be <= 65535
@@ -261,7 +262,7 @@ void connect_pm_pool(size_t size) {
   } else {
       g_pool = pmemobj_open(POOL_NAME, LAYOUT);
   }
-  //g_roots = pmemobj_root(g_pool, sizeof(PMDK_ROOTS));
+  g_root = pmemobj_root(g_pool, sizeof(PMDK_ROOTS));
 }
 
 void* pm_alloc(PMEMobjpool * pool, size_t size) {
@@ -444,14 +445,14 @@ uintptr_t command_next_range(Command* cmd, int beg, int end) {
 void heap_mgr_init(HeapManager* hmgr, int limit) {
   hmgr->limit = limit;
   shadow_mem_init(&hmgr->smem, limit, sizeof(void*));
-  // hmgr->freed = (bool*)random_mmap(round_up_page_size(limit));
-  // hmgr->valid = (bool*)random_mmap(round_up_page_size(limit));
-  // hmgr->usable_size = (size_t*)random_mmap(round_up_page_size(limit * sizeof(size_t)));
-  // hmgr->size = (int*)random_mmap(round_up_page_size(limit * sizeof(int)));
-  hmgr->freed = (bool*)pm_alloc(g_pool, round_up_page_size(limit));
-  hmgr->valid = (bool*)pm_alloc(g_pool, round_up_page_size(limit));
-  hmgr->usable_size = (size_t*)pm_alloc(g_pool, round_up_page_size(limit * sizeof(size_t)));
-  hmgr->size = (int*)pm_alloc(g_pool, round_up_page_size(limit * sizeof(int)));
+  hmgr->freed = (bool*)random_mmap(round_up_page_size(limit));
+  hmgr->valid = (bool*)random_mmap(round_up_page_size(limit));
+  hmgr->usable_size = (size_t*)random_mmap(round_up_page_size(limit * sizeof(size_t)));
+  hmgr->size = (int*)random_mmap(round_up_page_size(limit * sizeof(int)));
+  // hmgr->freed = (bool*)pm_alloc(g_pool, round_up_page_size(limit));
+  // hmgr->valid = (bool*)pm_alloc(g_pool, round_up_page_size(limit));
+  // hmgr->usable_size = (size_t*)pm_alloc(g_pool, round_up_page_size(limit * sizeof(size_t)));
+  // hmgr->size = (int*)pm_alloc(g_pool, round_up_page_size(limit * sizeof(int)));
 }
 
 void* heap_mgr_get_heap(HeapManager* hmgr, int* index) {
@@ -893,20 +894,20 @@ int heap_mgr_allocate(HeapManager* hmgr, ShadowMemory* buffer, size_t size) {
 
   shadow_mem_push(&hmgr->smem, (uintptr_t)ptr);
   int index = hmgr->smem.front - 1;
-  // hmgr->valid[index] = valid;
-  pmemobj_memcpy_persist(g_pool, &hmgr->valid[index], &valid, sizeof(valid));
+  hmgr->valid[index] = valid;
+  // pmemobj_memcpy_persist(g_pool, &hmgr->valid[index], &valid, sizeof(valid));
 
   if (g_allocator_info.header != -1) {
     int overhead = g_allocator_info.header + g_allocator_info.footer;
     int tmpvalue = MAX(g_allocator_info.minsz,
         round_up(size + overhead, g_allocator_info.round)) - overhead;
-    // hmgr->usable_size[index] = MAX(g_allocator_info.minsz,
-    //     round_up(size + overhead, g_allocator_info.round)) - overhead;
-    pmemobj_memcpy_persist(g_pool, &hmgr->usable_size[index], &tmpvalue, sizeof(tmpvalue));
+    hmgr->usable_size[index] = MAX(g_allocator_info.minsz,
+        round_up(size + overhead, g_allocator_info.round)) - overhead;
+    // pmemobj_memcpy_persist(g_pool, &hmgr->usable_size[index], &tmpvalue, sizeof(tmpvalue));
   }
   else if (valid) {
-    // hmgr->usable_size[index] = size;
-    pmemobj_memcpy_persist(g_pool, &hmgr->usable_size[index], &size, sizeof(size));
+    hmgr->usable_size[index] = size;
+    // pmemobj_memcpy_persist(g_pool, &hmgr->usable_size[index], &size, sizeof(size));
 
     // Since malloc_usable_size() can be failed due to an invalid chunk,
     // e.g., tcmalloc, we check techniques before calling malloc_usable_size()
@@ -914,14 +915,14 @@ int heap_mgr_allocate(HeapManager* hmgr, ShadowMemory* buffer, size_t size) {
     check_buffer_modify(buffer, false);
     check_container_modify(hmgr, false);
 
-    // hmgr->usable_size[index] = malloc_usable_size(ptr);
-    // hmgr->usable_size[index] = pmemobj_alloc_usable_size(pmemobj_oid(ptr));
-    size_t tmpsize = pmemobj_alloc_usable_size(pmemobj_oid(ptr));
-    pmemobj_memcpy_persist(g_pool, &hmgr->usable_size[index], &tmpsize, sizeof(tmpsize));
+    hmgr->usable_size[index] = malloc_usable_size(ptr);
+    hmgr->usable_size[index] = pmemobj_alloc_usable_size(pmemobj_oid(ptr));
+    // size_t tmpsize = pmemobj_alloc_usable_size(pmemobj_oid(ptr));
+    // pmemobj_memcpy_persist(g_pool, &hmgr->usable_size[index], &tmpsize, sizeof(tmpsize));
   }
   // TODO: Remove hmgr->size
-  // hmgr->size[index] = size;
-  pmemobj_memcpy_persist(g_pool, &hmgr->size[index], &size, sizeof(size));
+  hmgr->size[index] = size;
+  // pmemobj_memcpy_persist(g_pool, &hmgr->size[index], &size, sizeof(size));
   return (ptr == (void*)kBadPtr) ? -1 : index;
 }
 
@@ -931,9 +932,9 @@ bool heap_mgr_force_deallocate(HeapManager* hmgr, int* index) {
 
   *index %= hmgr->smem.front;
   void* ptr = (void*)shadow_mem_get(&hmgr->smem, *index);
-  //hmgr->freed[*index] = true;
-  bool tmpbool = true;
-  pmemobj_memcpy_persist(g_pool, &hmgr->freed[*index], &tmpbool, sizeof(tmpbool));
+  hmgr->freed[*index] = true;
+  // bool tmpbool = true;
+  // pmemobj_memcpy_persist(g_pool, &hmgr->freed[*index], &tmpbool, sizeof(tmpbool));
 
   if (do_action_heap(ptr)) {
     pm_free(ptr);
