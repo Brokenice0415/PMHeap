@@ -145,7 +145,7 @@ AllocatorInfo  g_allocator_info = {-1, -1, -1, -1};
 #define POOL_NAME "archeap_pmdk.data"
 #define LAYOUT    "ARCHEAPPM"
 PMEMobjpool * g_pool;
-PMEMoid       g_roots;
+PMEMoid       g_root;
 
 typedef struct PMDK_ROOTS {
   void* roots[1024];
@@ -261,7 +261,7 @@ void connect_pm_pool(size_t size) {
   } else {
       g_pool = pmemobj_open(POOL_NAME, LAYOUT);
   }
-  //g_roots = pmemobj_root(g_pool, sizeof(PMDK_ROOTS));
+  //g_root = pmemobj_root(g_pool, sizeof(PMDK_ROOTS));
 }
 
 void* pm_alloc(PMEMobjpool * pool, size_t size) {
@@ -525,35 +525,35 @@ void check_overlap(HeapManager* hmgr, ShadowMemory* buffer, int i) {
     }
   }
 
-  if (h1 >= buffer->orig
-      && h1 < buffer->orig + buffer->memory_size) {
-    DEBUG("[BUG] Found allocation in buffer");
-    DEBUG("p[%d]=%p (size=%ld), "
-        "buf=%p (size=%d)",
-        i,
-        (void*)h1, hmgr->usable_size[i],
-        (void*)buffer->orig, buffer->memory_size);
-    BEGIN_STMT;
-    STMT("assert((void*)buf <= p[%d] "
-          "&& p[%d] <= (void*)buf + sizeof(buf))", i, i);
-    END_STMT;
-    set_event_type(EVENT_ALLOC_IN_BUFFER);
-  }
+  // if (h1 >= buffer->orig
+  //     && h1 < buffer->orig + buffer->memory_size) {
+  //   DEBUG("[BUG] Found allocation in buffer");
+  //   DEBUG("p[%d]=%p (size=%ld), "
+  //       "buf=%p (size=%d)",
+  //       i,
+  //       (void*)h1, hmgr->usable_size[i],
+  //       (void*)buffer->orig, buffer->memory_size);
+  //   BEGIN_STMT;
+  //   STMT("assert((void*)buf <= p[%d] "
+  //         "&& p[%d] <= (void*)buf + sizeof(buf))", i, i);
+  //   END_STMT;
+  //   set_event_type(EVENT_ALLOC_IN_BUFFER);
+  // }
 
-  if (h1 >= hmgr->smem.orig
-      && h1 < hmgr->smem.orig + hmgr->smem.memory_size) {
-    DEBUG("[BUG] Found allocation in a container");
-    DEBUG("p[%d]=%p (size=%ld), "
-        "container=%p (size=%d)",
-        i,
-        (void*)h1, hmgr->usable_size[i],
-        (void*)hmgr->smem.orig, hmgr->smem.memory_size);
-    BEGIN_STMT;
-    STMT("assert((void*)p <= p[%d] "
-          "&& p[%d] <= (void*)p + sizeof(p))", i, i);
-    END_STMT;
-    set_event_type(EVENT_ALLOC_IN_CONTAINER);
-  }
+  // if (h1 >= hmgr->smem.orig
+  //     && h1 < hmgr->smem.orig + hmgr->smem.memory_size) {
+  //   DEBUG("[BUG] Found allocation in a container");
+  //   DEBUG("p[%d]=%p (size=%ld), "
+  //       "container=%p (size=%d)",
+  //       i,
+  //       (void*)h1, hmgr->usable_size[i],
+  //       (void*)hmgr->smem.orig, hmgr->smem.memory_size);
+  //   BEGIN_STMT;
+  //   STMT("assert((void*)p <= p[%d] "
+  //         "&& p[%d] <= (void*)p + sizeof(p))", i, i);
+  //   END_STMT;
+  //   set_event_type(EVENT_ALLOC_IN_CONTAINER);
+  // }
 }
 
 void check_buffer_modify(ShadowMemory *buffer, bool write) {
@@ -706,63 +706,65 @@ retry:
       break;
     }
 
-    case 1: {
-      // Offset of the buffer and a chunk
-      if (!g_capabilities[CAP_HEAP_ADDR].enable
-          || !g_capabilities[CAP_BUFFER_ADDR].enable)
-        goto retry;
-      int index_h = command_next_16(cmd);
-      void* h = heap_mgr_get_heap(hmgr, &index_h);
-      if (h == NULL)
-        goto retry;
+    // case 1: {
+    //   // Offset of the buffer and a chunk
+    //   if (!g_capabilities[CAP_HEAP_ADDR].enable
+    //       || !g_capabilities[CAP_BUFFER_ADDR].enable)
+    //     goto retry;
+    //   int index_h = command_next_16(cmd);
+    //   void* h = heap_mgr_get_heap(hmgr, &index_h);
+    //   if (h == NULL)
+    //     goto retry;
 
-      int index_b = command_next_16(cmd) % buffer->limit;
-      if (h == NULL)
-        goto retry;
-      uintptr_t buffer_heap_off
-          = buffer->orig + index_b * sizeof(void*)
-          - (uintptr_t)h;
-      int sign = command_next_8(cmd) & 1 ? -1 : 1;
-      int off = command_next_offset(cmd) * sizeof(void*);
-      if (sign == 1) {
-        STMT("(uintptr_t)&buf[%d] - (uintptr_t)p[%d] + %d",
-          index_b, index_h, off);
-      }
-      else {
-        STMT("(uintptr_t)p[%d] - (uintptr_t)&buf[%d] + %d",
-          index_h, index_b, off);
-      }
-      return sign * buffer_heap_off + off;
-    }
+    //   int index_b = command_next_16(cmd) % buffer->limit;
+    //   if (h == NULL)
+    //     goto retry;
+    //   uintptr_t buffer_heap_off
+    //       = buffer->orig + index_b * sizeof(void*)
+    //       - (uintptr_t)h;
+    //   int sign = command_next_8(cmd) & 1 ? -1 : 1;
+    //   int off = command_next_offset(cmd) * sizeof(void*);
+    //   if (sign == 1) {
+    //     STMT("(uintptr_t)&buf[%d] - (uintptr_t)p[%d] + %d",
+    //       index_b, index_h, off);
+    //   }
+    //   else {
+    //     STMT("(uintptr_t)p[%d] - (uintptr_t)&buf[%d] + %d",
+    //       index_h, index_b, off);
+    //   }
+    //   return sign * buffer_heap_off + off;
+    // }
 
-    case 2: {
-      // Offset of the container and a chunk
-      if (!g_capabilities[CAP_HEAP_ADDR].enable
-          || !g_capabilities[CAP_CONTAINER_ADDR].enable)
-        goto retry;
-      int index_h = command_next_16(cmd);
-      void* h = heap_mgr_get_heap(hmgr, &index_h);
-      if (h == NULL)
-        goto retry;
+    // case 2: {
+    //   // Offset of the container and a chunk
+    //   if (!g_capabilities[CAP_HEAP_ADDR].enable
+    //       || !g_capabilities[CAP_CONTAINER_ADDR].enable)
+    //     goto retry;
+    //   int index_h = command_next_16(cmd);
+    //   void* h = heap_mgr_get_heap(hmgr, &index_h);
+    //   if (h == NULL)
+    //     goto retry;
 
-      int size = hmgr->smem.front == 0 ? hmgr->limit : hmgr->smem.front;
-      int index_c = command_next_16(cmd) % size;
+    //   int size = hmgr->smem.front == 0 ? hmgr->limit : hmgr->smem.front;
+    //   int index_c = command_next_16(cmd) % size;
 
-      uintptr_t container_heap_off
-        = hmgr->smem.orig + index_c * sizeof(void*)
-        - (uintptr_t)h;
-      int sign = command_next_8(cmd) & 1 ? -1 : 1;
-      int off = command_next_offset(cmd) * sizeof(void*);
-      if (sign == 1) {
-        STMT("(uintptr_t)&p[%d] - (uintptr_t)p[%d] + %d",
-            index_c, index_h, off);
-      }
-      else {
-        STMT("(uintptr_t)p[%d] - (uintptr_t)&p[%d] + %d",
-            index_h, index_c, off);
-      }
-      return sign * container_heap_off + off;
-    }
+    //   uintptr_t container_heap_off
+    //     = hmgr->smem.orig + index_c * sizeof(void*)
+    //     - (uintptr_t)h;
+    //   int sign = command_next_8(cmd) & 1 ? -1 : 1;
+    //   int off = command_next_offset(cmd) * sizeof(void*);
+    //   if (sign == 1) {
+    //     STMT("(uintptr_t)&p[%d] - (uintptr_t)p[%d] + %d",
+    //         index_c, index_h, off);
+    //   }
+    //   else {
+    //     STMT("(uintptr_t)p[%d] - (uintptr_t)&p[%d] + %d",
+    //         index_h, index_c, off);
+    //   }
+    //   return sign * container_heap_off + off;
+    // }
+    case 1:
+    case 2:
 
     case 3: {
       // Aligned random size
@@ -808,6 +810,8 @@ retry:
       break;
     }
 
+    case 2:
+    case 3:
     case 1: {
       // Heap address
       if (!g_capabilities[CAP_HEAP_ADDR].enable)
@@ -821,26 +825,26 @@ retry:
       return (uintptr_t)h + off;
     }
 
-    case 2: {
-      // Buffer address
-      if (!g_capabilities[CAP_BUFFER_ADDR].enable)
-        goto retry;
-      int index = command_next_16(cmd) % buffer->limit;
-      STMT("(uintptr_t)&buf[%d]", index);
-      return (uintptr_t)buffer->orig + index * sizeof(uintptr_t);
-    }
+    // case 2: {
+    //   // Buffer address
+    //   if (!g_capabilities[CAP_BUFFER_ADDR].enable)
+    //     goto retry;
+    //   int index = command_next_16(cmd) % buffer->limit;
+    //   STMT("(uintptr_t)&buf[%d]", index);
+    //   return (uintptr_t)buffer->orig + index * sizeof(uintptr_t);
+    // }
 
-    case 3: {
-      // Container address
-      if (!g_capabilities[CAP_CONTAINER_ADDR].enable)
-        goto retry;
-      int size = hmgr->smem.front == 0 ? hmgr->limit : hmgr->smem.front;
-      int index = command_next_16(cmd) % size;
-      uintptr_t h = hmgr->smem.orig;
-      int off = command_next_offset(cmd) * sizeof(void*);
-      STMT("(uintptr_t)&p[%d] + %d", index, off);
-      return h + index * sizeof(uintptr_t) + off;
-    }
+    // case 3: {
+    //   // Container address
+    //   if (!g_capabilities[CAP_CONTAINER_ADDR].enable)
+    //     goto retry;
+    //   int size = hmgr->smem.front == 0 ? hmgr->limit : hmgr->smem.front;
+    //   int index = command_next_16(cmd) % size;
+    //   uintptr_t h = hmgr->smem.orig;
+    //   int off = command_next_offset(cmd) * sizeof(void*);
+    //   STMT("(uintptr_t)&p[%d] + %d", index, off);
+    //   return h + index * sizeof(uintptr_t) + off;
+    // }
 
     default:
       assert(false);
@@ -896,8 +900,8 @@ int heap_mgr_allocate(HeapManager* hmgr, ShadowMemory* buffer, size_t size) {
     // Since malloc_usable_size() can be failed due to an invalid chunk,
     // e.g., tcmalloc, we check techniques before calling malloc_usable_size()
     check_overlap(hmgr, buffer, index);
-    check_buffer_modify(buffer, false);
-    check_container_modify(hmgr, false);
+    // check_buffer_modify(buffer, false);
+    // check_container_modify(hmgr, false);
 
     hmgr->usable_size[index] = malloc_usable_size(ptr);
   }
@@ -965,15 +969,17 @@ retry:
     CLEAR_STMT;
     goto retry;
   }
-  STMT(", 1, dummy_construct, NULL);\n");
-  STMT("  p[%d] = pmemobj_direct(pp[%d])", hmgr->smem.front, hmgr->smem.front);
+  STMT(", 1, dummy_construct, NULL)");
+  END_STMT;
+  BEGIN_STMT;
+  STMT("p[%d] = pmemobj_direct(pp[%d])", hmgr->smem.front, hmgr->smem.front);
   END_STMT;
   int index = heap_mgr_allocate(hmgr, buffer, size);
 
   if (index != -1) {
     check_overlap(hmgr, buffer, index);
-    check_buffer_modify(buffer, false);
-    check_container_modify(hmgr, false);
+    // check_buffer_modify(buffer, false);
+    // check_container_modify(hmgr, false);
   }
 }
 
@@ -985,19 +991,12 @@ void fuzz_deallocate(HeapManager* hmgr, ShadowMemory* buffer, Command* cmd) {
     BEGIN_STMT;
     STMT("pmemobj_free(&pp[%d])", index);
     END_STMT;
-    check_buffer_modify(buffer, false);
-    check_container_modify(hmgr, false);
+    // check_buffer_modify(buffer, false);
+    // check_container_modify(hmgr, false);
   }
 }
 
 
-// ----------------------------
-//
-//
-//   STMT = ?
-//
-//
-//
 void fuzz_fill_heap(HeapManager* hmgr, ShadowMemory* buffer, Command* cmd) {
   int index = command_next_16(cmd);
   void* h = heap_mgr_get_valid_heap(hmgr, &index);
@@ -1025,37 +1024,41 @@ void fuzz_fill_heap(HeapManager* hmgr, ShadowMemory* buffer, Command* cmd) {
 
   for (int i = beg; i < end; i++) {
     BEGIN_STMT;
-    STMT("((uintptr_t*)p[%d])[%d] = ", index, i);
-    //STMT("pmemobj_memcpy_persist(pool, &pmemobj_oid(((uintptr_t*)p[%d])[%d]), %d, %d)", index, i, &value, sizeof(value));
+    //STMT("((uintptr_t*)p[%d])[%d] = ", index, i);
+    STMT("tmp = ");
     uintptr_t value = fuzz_value(hmgr, buffer, cmd);
+    END_STMT;
+    
+    BEGIN_STMT;
+    STMT("pmemobj_memcpy_persist(pool, (void*)(((uintptr_t*)p[%d])+%d), &tmp, sizeof(tmp))", index, i);
 
     if (do_action_heap(h))
-      *((uintptr_t*)h + i) = value;
-      //pmemobj_memcpy_persist(g_pool, (void*)((uintptr_t*)h + i), &value, sizeof(value));
+      //*((uintptr_t*)h + i) = value;
+      pmemobj_memcpy_persist(g_pool, (void*)&(*((uintptr_t*)h + i)), &value, sizeof(value));
     END_STMT;
   }
 
-  check_buffer_modify(buffer, true);
-  check_container_modify(hmgr, true);
+  // check_buffer_modify(buffer, true);
+  // check_container_modify(hmgr, true);
 }
 
 void fuzz_fill_buffer(HeapManager *hmgr,
     ShadowMemory* buffer, Command* cmd) {
-  int index = command_next_16(cmd) % buffer->limit;
-  int remainder = buffer->limit - index;
-  int num = command_next_8(cmd) % MIN(8, remainder) + 1;
+  // int index = command_next_16(cmd) % buffer->limit;
+  // int remainder = buffer->limit - index;
+  // int num = command_next_8(cmd) % MIN(8, remainder) + 1;
 
-  for (int i = 0; i < num; i++) {
-    BEGIN_STMT;
-    STMT("buf[%d] = ", index + i);
-    uintptr_t value = fuzz_value(hmgr, buffer, cmd);
-    if (do_action())
-      shadow_mem_set(buffer, index + i, value);
-    END_STMT;
-  }
-
-  check_buffer_modify(buffer, true);
-  check_container_modify(hmgr, true);
+  // for (int i = 0; i < num; i++) {
+  //   BEGIN_STMT;
+  //   STMT("buf[%d] = ", index + i);
+  //   uintptr_t value = fuzz_value(hmgr, buffer, cmd);
+  //   if (do_action())
+  //     shadow_mem_set(buffer, index + i, value);
+  //   END_STMT;
+  // }
+// 
+  // check_buffer_modify(buffer, true);
+  // check_container_modify(hmgr, true);
 }
 
 VulnType get_random_vuln_type(Command* cmd) {
@@ -1090,14 +1093,20 @@ void fuzz_vuln(HeapManager* hmgr,
       for (int i = 0; i < num; i ++) {
         if (first) DEBUG("[VULN] Overflow");
         BEGIN_STMT;
+        STMT("tmp = ");
+        uintptr_t value = fuzz_value(hmgr, buffer, cmd);
+        END_STMT;
+
         // NOTE: We overflow from usable_size[index] - sizeof(void*).
         // This is sensitive to ptmalloc that contains metadata at the last
         int off = hmgr->usable_size[index] + (i - 1) * sizeof(void*);
-        STMT("*(uintptr_t*)(p[%d] + %d) = ", index, off);
-        uintptr_t value = fuzz_value(hmgr, buffer, cmd);
+        STMT("pmemobj_memcpy_persist(pool, (void*)&(*(uintptr_t*)(p[%d] + %d)), &tmp, sizeof(tmp))", index, off);
+        //STMT("*(uintptr_t*)(p[%d] + %d) = ", index, off);
+        
         if (do_action_heap(h)) {
           if (first) first = false;
-          *(uintptr_t*)((uintptr_t)h + off) = value;
+          // *(uintptr_t*)((uintptr_t)h + off) = value;
+          pmemobj_memcpy_persist(g_pool, (void*)&(*(uintptr_t*)((uintptr_t)h + off)), &value, sizeof(value));
         }
         END_STMT;
       }
@@ -1118,10 +1127,14 @@ void fuzz_vuln(HeapManager* hmgr,
         DEBUG("old = %d, new=%d", old, value);
 
         BEGIN_STMT;
-        STMT("*(char*)(p[%d] + %ld) = %d", index, hmgr->usable_size[index], value);
-        //STMT("pmemobj_memcpy_persist(pool, &pmemobj_oid((char*)(p[%d] + %ld)), %d, %d)", index, hmgr->usable_size[index], &value, sizeof(value));
-        *(uint8_t*)((uintptr_t)h + hmgr->usable_size[index]) = value;
-        //pmemobj_memcpy_persist(g_pool, &pmemobj_oid(*(uint8_t*)((uintptr_t)h + hmgr->usable_size[index])), &value, sizeof(value));
+        STMT("tmp = %d", value);
+        END_STMT;
+
+        BEGIN_STMT;
+        //STMT("*(char*)(p[%d] + %ld) = %d", index, hmgr->usable_size[index], value);
+        STMT("pmemobj_memcpy_persist(pool, (void*)&(*(char*)(p[%d] + %ld)), &tmp, sizeof(tmp))", index, hmgr->usable_size[index]);
+        //*(uint8_t*)((uintptr_t)h + hmgr->usable_size[index]) = value;
+        pmemobj_memcpy_persist(g_pool, (void*)&(*(uint8_t*)((uintptr_t)h + hmgr->usable_size[index])), &value, sizeof(value));
         END_STMT;
       }
     }
@@ -1139,12 +1152,16 @@ void fuzz_vuln(HeapManager* hmgr,
         DEBUG("old = %d", old);
 
         BEGIN_STMT;
-        STMT("*(char*)(p[%d] + %ld) = 0", index, hmgr->usable_size[index]);
-        //STMT("pmemobj_memcpy_persist(pool, &pmemobj_oid(*(char*)(p[%d] + %ld)), 0, sizeof(char))", index, hmgr->usable_size[index]);
+        STMT("tmp = 0");
+        END_STMT;
 
-        *(uint8_t*)((uintptr_t)h + hmgr->usable_size[index]) = 0;
-        //char tmpzero = 0;
-        //pmemobj_memcpy_persist(g_pool, &pmemobj_oid(*(uint8_t*)((uintptr_t)h + hmgr->usable_size[index])), &tmpzero, sizeof(char));
+        BEGIN_STMT;
+        //STMT("*(char*)(p[%d] + %ld) = 0", index, hmgr->usable_size[index]);
+        STMT("pmemobj_memcpy_persist(pool, (void*)&(*(char*)(p[%d] + %ld)), &tmp, sizeof(char))", index, hmgr->usable_size[index]);
+
+        //*(uint8_t*)((uintptr_t)h + hmgr->usable_size[index]) = 0;
+        char tmpzero = 0;
+        pmemobj_memcpy_persist(g_pool, (void*)&(*(uint8_t*)((uintptr_t)h + hmgr->usable_size[index])), &tmpzero, sizeof(char));
         
 
         END_STMT;
@@ -1182,11 +1199,18 @@ void fuzz_vuln(HeapManager* hmgr,
       for (int i = beg; i < end; i++) {
         if (first) DEBUG("[VULN] Write-after-free");
         BEGIN_STMT;
-        STMT("((uintptr_t*)p[%d])[%d] = ", index, i);
+        STMT("tmp = ");
         uintptr_t value = fuzz_value(hmgr, buffer, cmd);
+        END_STMT;
+
+        BEGIN_STMT;
+        // STMT("((uintptr_t*)p[%d])[%d] = ", index, i);
+        STMT("pmemobj_memcpy_persist(pool, (void*)(((uintptr_t*)p[%d])+%d), &tmp, sizeof(tmp))", index, i);
+        
         if (do_action_heap(h)) {
           if (first) first = false;
-          *((uintptr_t*)h + i) = value;
+          //*((uintptr_t*)h + i) = value;
+          pmemobj_memcpy_persist(g_pool, (void*)&(*((uintptr_t*)h + i)), &value, sizeof(value));
         }
         END_STMT;
       }
@@ -1215,8 +1239,8 @@ void fuzz_vuln(HeapManager* hmgr,
           STMT("pmemobj_free(&pp[%d])", index);
           END_STMT;
 
-          check_buffer_modify(buffer, false);
-          check_container_modify(hmgr, false);
+          // check_buffer_modify(buffer, false);
+          // check_container_modify(hmgr, false);
         }
       }
     }
@@ -1229,12 +1253,16 @@ void fuzz_vuln(HeapManager* hmgr,
         DEBUG("[VULN] Arbitrary free");
 
         BEGIN_STMT;
-        STMT("pmemobj_free(&buf[%d])", index);
+        STMT("tmptr = pmemobj_oid((void*)(&buf[%d]))", index);
+        END_STMT;
+
+        BEGIN_STMT;
+        STMT("pmemobj_free(&tmptr)")
         END_STMT;
 
         pm_free((void*)(buffer->orig + index * sizeof(uintptr_t)));
-        check_buffer_modify(buffer, false);
-        check_container_modify(hmgr, false);
+        // check_buffer_modify(buffer, false);
+        // check_container_modify(hmgr, false);
       }
     }
     break;
@@ -1463,10 +1491,10 @@ int main(int argc, char** argv) {
   char* input_file = argv[optind];
   char* bitmap_file = NULL;
 
-  const int heap_limit = PMEMOBJ_MIN_POOL/sizeof(uintptr_t);
-  const int buffer_limit = PMEMOBJ_MIN_POOL/sizeof(uintptr_t);
-  // const int heap_limit = 0x100;
-  // const int buffer_limit = 0x100;
+  // const int heap_limit = PMEMOBJ_MIN_POOL/sizeof(uintptr_t);
+  // const int buffer_limit = PMEMOBJ_MIN_POOL/sizeof(uintptr_t);
+  const int heap_limit = 0x100;
+  const int buffer_limit = 0x100;
 
   fprintf(stderr,
       "#include <assert.h>\n"
@@ -1488,8 +1516,8 @@ int main(int argc, char** argv) {
       "if (access(POOL_NAME, 0))\n"
       "  pool = pmemobj_create(POOL_NAME, LAY_OUT, %d, 0666);\n"
       "else\n"
-      "  pool = pmemobj_open(POOL_NAME, LAY_OUT);\n\n", heap_limit, heap_limit, buffer_limit, round_up_page_size(heap_limit * sizeof(size_t)));
-      //"   pool = pmemobj_open(POOL_NAME, LAY_OUT);\n\n", heap_limit, heap_limit, buffer_limit, PMEMOBJ_MIN_POOL);
+      //"  pool = pmemobj_open(POOL_NAME, LAY_OUT);\n\n", heap_limit, heap_limit, buffer_limit, round_up_page_size(heap_limit * sizeof(size_t)));
+      "  pool = pmemobj_open(POOL_NAME, LAY_OUT);\n\n", heap_limit, heap_limit, buffer_limit, PMEMOBJ_MIN_POOL);
 
   srand(time(NULL));
 
@@ -1511,8 +1539,8 @@ int main(int argc, char** argv) {
   DEBUG(DBG_INFO "Command buffer: %p", g_cmd.buf);
   DEBUG(DBG_INFO "Input size: %lu", g_cmd.size);
 
-  connect_pm_pool(round_up_page_size(heap_limit * sizeof(size_t)));
-  //connect_pm_pool(PMEMOBJ_MIN_POOL);
+  // connect_pm_pool(round_up_page_size(heap_limit * sizeof(size_t)));
+  connect_pm_pool(PMEMOBJ_MIN_POOL);
   heap_mgr_init(&g_hmgr, heap_limit);
   shadow_mem_init(&g_buffer, buffer_limit, sizeof(uintptr_t));
 
