@@ -1561,15 +1561,16 @@ int main(int argc, char** argv) {
       "#define POOL_NAME \"archeap_pm.data\"\n"
       "#define LAY_OUT \"PMTEST\"\n\n"
       "typedef struct my_root {\n"
-      "  PMEMoid pp[%d];\n"
-      "  uintptr_t buf[%d];\n"
+      "  int heap_limit;\n"
+      "  int buffer_limit;\n"
+      "  PMEMoid p;\n"
+      "  PMEMoid buf;\n"
       "} MY_ROOT;\n\n"
       "static int dummy_construct(PMEMobjpool* pop, void* ptr, void* arg) {\n"
       "  return 0;\n"
       "}\n\n"
       "uintptr_t tmp;\n"
-      "PMEMoid tmptr;\n"
-      "void* p[%d];\n\n"
+      "PMEMoid tmptr;\n\n"
       "int main() {\n"
       "  PMEMobjpool * pool;\n"
       "  if (access(POOL_NAME, 0))\n"
@@ -1578,7 +1579,16 @@ int main(int argc, char** argv) {
       "    pool = pmemobj_open(POOL_NAME, LAY_OUT);\n\n"
       "  PMEMoid root = pmemobj_root(pool, sizeof(MY_ROOT));\n"
       //"  MY_ROOT *mr = (MY_ROOT*)pmemobj_direct(root);\n\n", heap_limit, heap_limit, buffer_limit, round_up_page_size(heap_limit * sizeof(size_t)));
-      "  MY_ROOT *mr = (MY_ROOT*)pmemobj_direct(root);\n\n", heap_limit, heap_limit, buffer_limit, PMEMOBJ_MIN_POOL);
+      "  MY_ROOT *mr = (MY_ROOT*)pmemobj_direct(root);\n\n"
+      "  int tmplimit = %d;\n"
+      "  pmemobj_memcpy_persist(pool, (void*)mr, &tmplimit, sizeof(int));\n"
+      "  tmplimit = %d;\n"
+      "  pmemobj_memcpy_persist(pool, (void*)(mr+sizeof(int)), &tmplimit, sizeof(int));\n\n"
+      "  pmemobj_alloc(pool, &(mr->p), sizeof(PMEMoid)*mr->heap_limit, 1, dummy_construct, NULL);\n"
+      "  pmemobj_alloc(pool, &(mr->buf), sizeof(uintptr_t)*mr->buffer_limit, 1, dummy_construct, NULL);\n\n"
+      "  PMEMoid *p = (PMEMoid*)pmemobj_direct(mr->p);\n"
+      "  uintptr_t *buf = (uintptr_t*)pmemobj_direct(mr->buf);\n"
+      ,PMEMOBJ_MIN_POOL, heap_limit, buffer_limit);
 
   srand(time(NULL));
 
