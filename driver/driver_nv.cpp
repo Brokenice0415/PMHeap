@@ -978,11 +978,11 @@ uintptr_t fuzz_value(HeapManager* hmgr, ShadowMemory* buffer, Command* cmd) {
 }
 
 void fuzz_allocate(HeapManager* hmgr, ShadowMemory* buffer, Command* cmd) {
-retry:
   BEGIN_STMT;
   STMT("tmptr = (void**)malloc(sizeof(void**))");
   END_STMT;
   
+retry:
   BEGIN_STMT;
   STMT("nvalloc_malloc_to(");
 
@@ -1001,7 +1001,7 @@ retry:
     CLEAR_STMT;
     goto retry;
   }
-  STMT(", (void**)&tmptr)");
+  STMT(", (void**)tmptr)");
   END_STMT;
 
   BEGIN_STMT;
