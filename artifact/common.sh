@@ -23,27 +23,28 @@ function run_all() {
   fi
 
   export AFL_NO_UI=1
-  $AFL_FUZZ -m none -i input -o output-OC -- $APP \
-    -e RESTRICTED_WRITE_IN_CONTAINER -e RESTRICTED_WRITE_IN_BUFFER \
-    -e ARBITRARY_WRITE_IN_CONTAINER -e ARBITRARY_WRITE_IN_BUFFER \
-    -e ALLOC_IN_CONTAINER -e ALLOC_IN_BUFFER \
-    @@ &
+  #$AFL_FUZZ -m none -i input -o output-OC -- $APP \
+  #  -e RESTRICTED_WRITE_IN_CONTAINER -e RESTRICTED_WRITE_IN_BUFFER \
+  #  -e ARBITRARY_WRITE_IN_CONTAINER -e ARBITRARY_WRITE_IN_BUFFER \
+  #  -e ALLOC_IN_CONTAINER -e ALLOC_IN_BUFFER \
+  #  @@ &
 
-  $AFL_FUZZ -m none -i input -o output-AC -- $APP \
-    -e OVERLAP \
-    -e RESTRICTED_WRITE_IN_CONTAINER -e RESTRICTED_WRITE_IN_BUFFER \
-    -e ARBITRARY_WRITE_IN_CONTAINER -e ARBITRARY_WRITE_IN_BUFFER \
-    @@ &
+  #$AFL_FUZZ -m none -i input -o output-AC -- $APP \
+  #  -e OVERLAP \
+  #  -e RESTRICTED_WRITE_IN_CONTAINER -e RESTRICTED_WRITE_IN_BUFFER \
+  #  -e ARBITRARY_WRITE_IN_CONTAINER -e ARBITRARY_WRITE_IN_BUFFER \
+  #  @@ &
 
-  $AFL_FUZZ -m none -i input -o output-RW -- $APP \
-    -e OVERLAP \
-    -e ARBITRARY_WRITE_IN_CONTAINER -e ARBITRARY_WRITE_IN_BUFFER \
-    -e ALLOC_IN_CONTAINER -e ALLOC_IN_BUFFER \
-    @@ &
+  #$AFL_FUZZ -m none -i input -o output-RW -- $APP \
+  #  -e OVERLAP \
+  #  -e ARBITRARY_WRITE_IN_CONTAINER -e ARBITRARY_WRITE_IN_BUFFER \
+  #  -e ALLOC_IN_CONTAINER -e ALLOC_IN_BUFFER \
+  #  @@ &
 
-  $AFL_FUZZ -m none -i input -o output-AW -- $APP \
-    -e OVERLAP \
-    -e RESTRICTED_WRITE_IN_CONTAINER -e RESTRICTED_WRITE_IN_BUFFER \
-    -e ALLOC_IN_CONTAINER -e ALLOC_IN_BUFFER \
-    @@
+  #$AFL_FUZZ -m none -i input -o output-AW -- $APP \
+  #  -e OVERLAP \
+  #  -e RESTRICTED_WRITE_IN_CONTAINER -e RESTRICTED_WRITE_IN_BUFFER \
+  #  -e ALLOC_IN_CONTAINER -e ALLOC_IN_BUFFER \
+  #  @@
+  $AFL_FUZZ -m none -i input -o output $APP @@ -u 4096*196608
 }
