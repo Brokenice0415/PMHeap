@@ -201,7 +201,7 @@ Option g_events[] = {
 };
 
 uintptr_t interesting_values[] = {
-  -1,
+  (long unsigned)-1,
   -sizeof(void*),
   0,
   sizeof(void*),
@@ -996,7 +996,8 @@ retry:
     size = fuzz_int(hmgr, buffer, cmd);
 
   if ((g_lower_bound != 0 && g_lower_bound > size) ||
-      (g_upper_bound != 0 && size > g_upper_bound)) {
+      (g_upper_bound != 0 && size > g_upper_bound) ||
+      ((int)size < 0)) {
     CLEAR_STMT;
     goto retry;
   }
@@ -1558,6 +1559,7 @@ int main(int argc, char** argv) {
 
   // connect_pm_pool(round_up_page_size(heap_limit * sizeof(size_t)));
   // connect_pm_pool(PMEMOBJ_MIN_POOL);
+  nvalloc_init();
   heap_mgr_init(&g_hmgr, heap_limit);
   shadow_mem_init(&g_buffer, buffer_limit, sizeof(uintptr_t));
 
