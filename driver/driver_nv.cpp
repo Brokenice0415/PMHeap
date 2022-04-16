@@ -752,12 +752,12 @@ retry:
     case 2: {
       // Offset of chunks
       int index_h1 = command_next_16(cmd);
-      void* h1 = heap_mgr_get_heap(hmgr, &index_h1);
+      void* h1 = heap_mgr_get_valid_heap(hmgr, &index_h1);
       if (h1 == NULL)
         goto retry;
 
       int index_h2 = command_next_16(cmd);
-      void* h2 = heap_mgr_get_heap(hmgr, &index_h2);
+      void* h2 = heap_mgr_get_valid_heap(hmgr, &index_h2);
       if (h2 == NULL)
         goto retry;
 
@@ -1233,33 +1233,34 @@ void fuzz_vuln(HeapManager* hmgr,
     }
     break;
 
-    case VULN_DOUBLE_FREE: {
-      int index = command_next_16(cmd);
-      void* h = heap_mgr_get_freed_heap(hmgr, &index);
-      if (h == NULL)
-        return;
+    // case VULN_DOUBLE_FREE: {
+    //   int index = command_next_16(cmd);
+    //   void* h = heap_mgr_get_freed_heap(hmgr, &index);
+    //   if (h == NULL)
+    //     return;
 
-      for (int i = 0 ; i < hmgr->limit; i++) {
-        int other_index = i;
-        void* other_h = heap_mgr_get_valid_heap(hmgr, &other_index);
-        if (other_h == h && (uintptr_t)h != kBadPtr) {
-          DEBUG(DBG_INFO "This is not really freed memory");
-          return;
-        }
-      }
+    //   for (int i = 0 ; i < hmgr->limit; i++) {
+    //     int other_index = i;
+    //     void* other_h = heap_mgr_get_valid_heap(hmgr, &other_index);
+    //     if (other_h == h && (uintptr_t)h != kBadPtr) {
+    //       DEBUG(DBG_INFO "This is not really freed memory");
+    //       return;
+    //     }
+    //   }
 
-      if (do_action()) {
-        DEBUG("[VULN] Double free");
-        if (heap_mgr_force_deallocate(hmgr, &index)) {
-          BEGIN_STMT;
-          STMT("nvalloc_free_from((void**)&p[%d])", index);
-          END_STMT;
+    //   if (do_action()) {
+    //     DEBUG("[VULN] Double free");
+    //     if (heap_mgr_force_deallocate(hmgr, &index)) {
+    //       BEGIN_STMT;
+    //       STMT("nvalloc_free_from((void**)&p[%d])", index);
+    //       END_STMT;
 
-        //   check_buffer_modify(buffer, false);
-        //   check_container_modify(hmgr, false);
-        }
-      }
-    }
+    //     //   check_buffer_modify(buffer, false);
+    //     //   check_container_modify(hmgr, false);
+    //     }
+    //   }
+    // }
+    case VULN_DOUBLE_FREE:
     break;
 
     // case VULN_ARBITRARY_FREE: {
