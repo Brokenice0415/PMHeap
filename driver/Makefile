@@ -1,4 +1,4 @@
-CC ?= g++
+CC = g++
 AFL_DIR := ../tool/afl-2.52b
 CFLAGS += -std=gnu99 -g -w $(shell pkg-config --cflags libpmemobj)
 LDFLAGS += $(shell pkg-config --libs libpmemobj)
