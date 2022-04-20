@@ -14,6 +14,12 @@
 #include <signal.h>
 #include <fcntl.h>
 
+#include <string>
+#include <sys/wait.h>
+
+#include <time.h>
+#include <chrono>
+
 #include <libpmemobj.h>
 
 #define FIRST_ARG(N, ...) N
@@ -142,7 +148,8 @@ int             g_skipped = 0;
 // Info: header, footer, round, minsz
 AllocatorInfo  g_allocator_info = {-1, -1, -1, -1};
 
-#define POOL_NAME "archeap_pmdk.data"
+std::string pool_path = "/mnt/pmem0/lap/pmdk2/";
+std::string pool_name;
 #define LAYOUT    "ARCHEAPPM"
 PMEMobjpool * g_pool;
 
@@ -239,7 +246,6 @@ void flush_stmt() {
 }
 
 void done() {
-  pmemobj_close(g_pool);
   fprintf(stderr,
       "}\n");
 
@@ -251,36 +257,6 @@ void done() {
   }
   else
     exit(-1);
-}
-
-static int dummy_construct(PMEMobjpool* pop, void* ptr, void* arg) {
-  return 0;
-}
-
-void connect_pm_pool(size_t size) {
-  if (access(POOL_NAME, 0)) {
-      g_pool = pmemobj_create(POOL_NAME, LAYOUT, size, 0666);
-      if (g_pool == nullptr) {
-          assert(0);
-      }
-  } else {
-      g_pool = pmemobj_open(POOL_NAME, LAYOUT);
-  }
-  PMEMoid root = pmemobj_root(g_pool, sizeof(PMDK_ROOT));
-  g_root = (PMDK_ROOT*)pmemobj_direct(root);
-}
-
-void* pm_alloc(PMEMobjpool * pool, size_t size) {
-  PMEMoid tmptr;
-  pmemobj_alloc(pool, &tmptr, size, 1, dummy_construct, NULL);
-  return pmemobj_direct(tmptr);
-}
-
-void pm_free(void* ptr) {
-  if (ptr == NULL) return;
-  PMEMoid tmptr;
-  tmptr = pmemobj_oid(ptr);
-  pmemobj_free(&tmptr);
 }
 
 void set_event_type(EventType ety) {
@@ -318,6 +294,10 @@ void* random_mmap(size_t size) {
     if (addr != MAP_FAILED)
       return addr;
   }
+}
+
+static int dummy_construct(PMEMobjpool* pop, void* ptr, void* arg) {
+  return 0;
 }
 
 void shadow_mem_init(ShadowMemory* smem, int limit, int nmemb, bool isBuffer) {
@@ -400,6 +380,51 @@ void shadow_mem_make_same(ShadowMemory* smem) {
       smem->limit * smem->nmemb);
 }
 
+// ###
+static std::string get_timestamp() {
+	auto now = std::chrono::system_clock::now();
+	std::chrono::time_point<std::chrono::system_clock,std::chrono::milliseconds> tp = std::chrono::time_point_cast<std::chrono::milliseconds>(now);//获取当前时间点
+	std::time_t timestamp =  tp.time_since_epoch().count();
+	char buf[64];
+	sprintf(buf, "%ld", timestamp);
+	return std::string(buf);
+}
+
+void connect_pm_pool(size_t size) {
+  pool_name = pool_path + get_timestamp();
+  if (access(pool_name.c_str(), 0)) {
+      g_pool = pmemobj_create(pool_name.c_str(), LAYOUT, size, 0666);
+      if (g_pool == nullptr) {
+          assert(0);
+      }
+  } else {
+      g_pool = pmemobj_open(pool_name.c_str(), LAYOUT);
+  }
+  PMEMoid root = pmemobj_root(g_pool, sizeof(PMDK_ROOT));
+  g_root = (PMDK_ROOT*)pmemobj_direct(root);
+}
+
+void* pm_alloc(PMEMobjpool * pool, size_t size) {
+  PMEMoid tmptr;
+  pmemobj_alloc(pool, &tmptr, size, 1, dummy_construct, NULL);
+  return pmemobj_direct(tmptr);
+}
+
+void pm_free(void* ptr) {
+  if (ptr == NULL) return;
+  PMEMoid tmptr;
+  tmptr = pmemobj_oid(ptr);
+  pmemobj_free(&tmptr);
+}
+
+void copy_pool(std::string src, std::string dst) {
+	int pid = system(("cp "+src+" "+dst).c_str());
+  waitpid(pid, NULL, 0);
+
+  g_pool = pmemobj_open(dst.c_str(), LAYOUT);
+  pool_name = dst;
+}
+
 void command_init(Command* cmd, const char* filename, int limit) {
   cmd->limit = limit;
   cmd->buf = (char*)random_mmap(limit);
@@ -424,11 +449,23 @@ void command_check_index(Command* cmd, int req) {
     FATAL(DBG_INFO "Reach the end of input");
 }
 
-void command_next(Command* cmd, void* buf, size_t size) {
+// ########## pool copy after fork
+void _command_next(Command* cmd, void* buf, size_t size) {
+  
   command_check_index(cmd, size);
   memcpy(buf, cmd->buf + cmd->index, size);
   cmd->index += size;
+  
+  copy_pool(pool_name, pool_path+get_timestamp());
 }
+
+void command_next(Command* cmd, void* buf, size_t size) {
+  //#### close before fork
+  pmemobj_close(g_pool);
+
+  _command_next(cmd, buf, size);
+}
+
 
 const char* command_name(Command* cmd, const char* prefix) {
   static char name[256];
@@ -1571,12 +1608,12 @@ int main(int argc, char** argv) {
       //"  MY_ROOT *mr = (MY_ROOT*)pmemobj_direct(root);\n\n", heap_limit, heap_limit, buffer_limit, round_up_page_size(heap_limit * sizeof(size_t)));
       "  MY_ROOT *mr = (MY_ROOT*)pmemobj_direct(root);\n\n"
       "  int tmplimit = %d;\n"
-      "  pmemobj_memcpy_persist(pool, (void*)mr, &tmplimit, sizeof(int));\n"
+      "  pmemobj_memcpy_persist(pool, &(mr->heap_limit), &tmplimit, sizeof(int));\n"
       "  tmplimit = %d;\n"
-      "  pmemobj_memcpy_persist(pool, (void*)(mr+sizeof(int)), &tmplimit, sizeof(int));\n\n"
+      "  pmemobj_memcpy_persist(pool, &(mr->buffer_limit), &tmplimit, sizeof(int));\n\n"
       "  pmemobj_alloc(pool, &(mr->p), sizeof(uintptr_t)*mr->heap_limit, 1, dummy_construct, NULL);\n"
       "  pmemobj_alloc(pool, &(mr->buf), sizeof(uintptr_t)*mr->buffer_limit, 1, dummy_construct, NULL);\n\n"
-      "  uintptr_t *pp = (uintptr_t*)pmemobj_direct(mr->p);\n"
+      "  void **p = (void**)pmemobj_direct(mr->p);\n"
       "  uintptr_t *buf = (uintptr_t*)pmemobj_direct(mr->buf);\n\n"
       ,PMEMOBJ_MIN_POOL, heap_limit, buffer_limit);
 
