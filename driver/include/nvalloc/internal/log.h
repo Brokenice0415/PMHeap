@@ -83,7 +83,7 @@ struct log_file_head_s
 /******************************************************************************/
 #ifdef NVALLOC_H_EXTERNS
 
-vlog_t *log_create(uint64_t areana_id);
+vlog_t *log_create(uint64_t areana_id, char* nvpath);
 
 void *add_log(arena_t *arena, vlog_t **vlog_ptr, uint8_t type, uint64_t ptr, uint64_t size_version_id, bool slab);
 void fast_GC(vlog_t *vlog);

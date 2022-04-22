@@ -80,12 +80,14 @@ void arena_dalloc(tcache_t *tcache, void *ptr, szind_t szind, bool slab);
 
 void arena_decay(tcache_t *tcache, arena_t *arena);
 void *arena_activate_new_memory(arena_t *arena, tcache_t *tcache, size_t npages);
-void arena_file_unmap(extent_t *extent, arena_t *arena, const char *path);
+void arena_file_unmap(extent_t *extent, arena_t *arena, char *path);
 
 extent_t *arena_slab_alloc(tcache_t *tcache, arena_t *arena, size_t size, vslab_t *vslab);
 void arena_slab_dalloc(tcache_t *tcache, arena_t *arena, extent_t *slab);
 
 rb_proto(, file_tree_, file_tree_t, file_t)
+
+void read_nvpath(char* path);
 
 #endif /* NVALLOC_H_EXTERNS */
 /******************************************************************************/
@@ -114,9 +116,9 @@ rb_proto(, file_tree_, file_tree_t, file_t)
 	}
 }
 
-static inline void get_filepath(unsigned int arena_ind, char *str, int file_id, const char *path)
+static inline void get_filepath(unsigned int arena_ind, char *str, int file_id, char *path)
 {
-	sprintf(str, "%s%u_%d", path, arena_ind, file_id);
+	sprintf(str, "%snvalloc_files_%u_%d", path, arena_ind, file_id);
 }
 
 #endif /* NVALLOC_H_INLINES */

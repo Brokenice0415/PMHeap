@@ -13,7 +13,7 @@ void *nvalloc_malloc_to(size_t size, void **ptr);
 
 void nvalloc_free_from(void **pptr);
 
-int nvalloc_init();
+int nvalloc_init(const char* poolpath);
 
 uint64_t nvget_memory_usage();
 

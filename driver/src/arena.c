@@ -4,7 +4,8 @@
 /******************************************************************************/
 /* Data. */
 
-const char PMEMPATH[50] = "/mnt/pmem/nvalloc_files/nvalloc_files_";
+// const char PMEMPATH[50] = "/mnt/pmem/nvalloc_files/nvalloc_files_";
+char nvpath[100];
 
 #define DIRTY_DECAY_MS_DEFAULT ZD(10 * 1000)
 #define MUZZY_DECAY_MS_DEFAULT ZD(100 * 1000)
@@ -158,7 +159,7 @@ int arena_evict_new_memory(arena_t *arena, tcache_t *tcache)
 	return err;
 }
 
-void arena_file_unmap_locked(extent_t *extent, arena_t *arena, const char *path)
+void arena_file_unmap_locked(extent_t *extent, arena_t *arena, char *path)
 {
 	assert(((uintptr_t)extent->e_addr) % CHUNK_SIZE == 0);
 	assert(extent->size % CHUNK_SIZE == 0 && extent->size != 0);
@@ -189,14 +190,14 @@ void arena_file_unmap_locked(extent_t *extent, arena_t *arena, const char *path)
 		_free(file);
 	}
 }
-void arena_file_unmap(extent_t *extent, arena_t *arena, const char *path)
+void arena_file_unmap(extent_t *extent, arena_t *arena, char *path)
 {
 	pthread_mutex_lock(&arena->lock);
 	arena_file_unmap_locked(extent, arena, path);
 	pthread_mutex_unlock(&arena->lock);
 }
 
-static void *arena_file_map_locked(arena_t *arena, size_t size, const char *path, size_t align)
+static void *arena_file_map_locked(arena_t *arena, size_t size, char *path, size_t align)
 {
 
 	char str[100];
@@ -277,7 +278,7 @@ int arena_get_new_memory_locked(arena_t *arena, size_t npages)
 		printf("memory_new=%p npage_new=%ld\n", arena->memory_new, arena->npage_new);
 	}
 	assert(arena->memory_new == NULL && arena->npage_new == 0);
-	arena->memory_new = arena_file_map_locked(arena, CHUNK_SIZE, PMEMPATH, CHUNK_SIZE);
+	arena->memory_new = arena_file_map_locked(arena, CHUNK_SIZE, nvpath, CHUNK_SIZE);
 	if (arena->memory_new == NULL)
 	{
 		return 1;
@@ -331,7 +332,7 @@ bool arena_new(arena_t *arena, unsigned ind)
 	pthread_mutex_init(&arena->lock, 0);
 	pthread_mutex_init(&arena->log_lock, 0);
 
-	arena->log = log_create(arena->ind);
+	arena->log = log_create(arena->ind, nvpath);
 
 	rb_new(file_t, file_link, &arena->file_tree);
 
@@ -788,4 +789,8 @@ void arena_slab_dalloc(tcache_t *tcache, arena_t *arena, extent_t *slab)
 	pthread_mutex_lock(&arena->log_lock);
 	add_log(arena, &arena->log, FREE_LOG, (uint64_t)slab->log, (uint64_t)NULL, true);
 	pthread_mutex_unlock(&arena->log_lock);
+}
+
+void read_nvpath(char* path) {
+	sprintf(nvpath, path);
 }

@@ -187,7 +187,8 @@ void extent_dalloc_wrapper(tcache_t *tcache, arena_t *arena,
 
 	extent_deregister(tcache, extent);
 
-	arena_file_unmap(extent, arena, PMEMPATH);
+	// arena_file_unmap(extent, arena, PMEMPATH);
+	arena_file_unmap(extent, arena, nvpath);
 
 	extent_dalloc(arena, extent);
 

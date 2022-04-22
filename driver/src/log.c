@@ -71,14 +71,16 @@ static inline vlchunk_t *vlchunk_alloc(vlog_t *vlog)
     return new_vlchunk;
 }
 
-void *log_file_create(size_t align, uint64_t arena_id)
+void *log_file_create(size_t align, uint64_t arena_id, char* nvpath)
 {
     void *addr, *tmp;
 
     size_t mapped_len;
     char str[100];
     int is_pmem;
-    sprintf(str, "%slog_%ld", "/mnt/pmem/nvalloc_files/nvalloc_files_", arena_id);
+
+    // sprintf(str, "%slog_%ld", "/mnt/pmem/nvalloc_files/nvalloc_files_", arena_id);
+    sprintf(str, "%snvalloc_files_log_%ld", nvpath, arena_id);
 
     if ((tmp = pmem_map_file(str, LOG_FILE_SIZE, PMEM_FILE_CREATE | PMEM_FILE_SPARSE, 0666, &mapped_len, &is_pmem)) == NULL)
     {
@@ -96,12 +98,12 @@ void *log_file_create(size_t align, uint64_t arena_id)
     return tmp;
 }
 
-vlog_t *log_create(uint64_t areana_id)
+vlog_t *log_create(uint64_t areana_id, char* nvpath)
 {
     vlog_t *vlog = (vlog_t *)_malloc(sizeof(vlog_t));
     vlog->gc_timer = 0;
 
-    vlog->log_file_addr = log_file_create(LCHUNK_SIZE, areana_id);
+    vlog->log_file_addr = log_file_create(LCHUNK_SIZE, areana_id, nvpath);
     vlog->log_file_used = LCHUNK_SIZE;
     log_file_head_t *log_file_head = (log_file_head_t *)vlog->log_file_addr;
     log_file_head->alt = 0;
@@ -247,7 +249,8 @@ int get_heap_usage()
     struct stat statbuf;
     arena_t *arena = NULL;
     arena = choose_arena(arena);
-    get_filepath(arena->ind, fname, arena->file_id, PMEMPATH);
+    // get_filepath(arena->ind, fname, arena->file_id, PMEMPATH);
+    get_filepath(arena->ind, fname, arena->file_id, nvpath);
     if (stat(fname, &statbuf) == -1)
     {
         printf("%s stat error! errno = %d\n\n", fname, errno);

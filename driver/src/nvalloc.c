@@ -6,7 +6,7 @@
 /* Data. */
 
 int32_t *logs;
-char *path = "/mnt/pmem/nvalloc_files/";
+char path[100] = "/mnt/pmem0/lap/nv_dir/";
 struct stat sb;
 
 size_t opt_narenas = 0;
@@ -265,8 +265,22 @@ choose_arena_hard(void)
     return (ret);
 }
 
-int nvalloc_init()
+int nvalloc_init(const char* poolpath)
 {
+
+    strcat(path, poolpath);
+
+    if (access(path, 0)) {
+        char cmd[100] = "mkdir ";
+        strcat(cmd, path);
+        int pid = system(cmd);
+        waitpid(pid, NULL, 0);
+    }
+    
+    strcat(path, "/");
+
+    read_nvpath(path);
+
     ncpus = malloc_ncpus();
     if (opt_narenas == 0)
     {
@@ -276,7 +290,7 @@ int nvalloc_init()
             opt_narenas = 1;
     }
 
-    minilog = minilog_create();
+    minilog = minilog_create(path);
     global_index = 0;
 
     tcache_boot(opt_narenas);
@@ -327,7 +341,8 @@ uint64_t nvget_memory_usage()
             break;
         for (int i = 0; i < arena->file_id; i++)
         {
-            get_filepath(arena->ind, fname, i, PMEMPATH);
+            // get_filepath(arena->ind, fname, i, PMEMPATH);
+            get_filepath(arena->ind, fname, i, nvpath);
             if (stat(fname, &statbuf) == -1)
             {
                 printf("%s stat error! errno = %d\n\n", fname, errno);

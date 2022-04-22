@@ -23,5 +23,5 @@ struct minilog_s
    mini_item_t log_item[MINILOG_NUM];
 };
 
-minilog_t *minilog_create();
+minilog_t *minilog_create(char* nvpath);
 void add_minilog(minilog_t *log, uint64_t *global_index, uint64_t ptr);

@@ -144,7 +144,8 @@ typedef unsigned pszind_t;
 extern uint32_t meta_size;
 
 extern size_t opt_narenas;
-extern const char PMEMPATH[50];
+// extern const char PMEMPATH[50];
+extern char nvpath[100];
 
 arena_t *choose_arena_hard(void);
 

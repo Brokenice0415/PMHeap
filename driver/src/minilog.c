@@ -1,13 +1,15 @@
 #include "nvalloc/internal/nvalloc_internal.h"
 
-static inline void *minilog_file_create(size_t align)
+static inline void *minilog_file_create(size_t align, char* nvpath)
 {
     void *addr, *tmp;
 
     size_t mapped_len;
     char str[100];
+
     int is_pmem;
-    sprintf(str, "/mnt/pmem/nvalloc_files/minilog_file");
+    sprintf(str, "%sminilog_file", nvpath);
+    //sprintf(str, "/mnt/pmem/nvalloc_files/minilog_file");
 
     if ((tmp = pmem_map_file(str, 8 * 1024, PMEM_FILE_CREATE | PMEM_FILE_SPARSE, 0666, &mapped_len, &is_pmem)) == NULL)
     {
@@ -24,10 +26,10 @@ static inline void *minilog_file_create(size_t align)
     return tmp;
 }
 
-minilog_t *minilog_create()
+minilog_t *minilog_create(char* nvpath)
 {
 
-    minilog_t *log = (minilog_t *)((uint64_t)minilog_file_create(8 * 1024) + 4 * 1024 - MINILOG_SIZE / 2);
+    minilog_t *log = (minilog_t *)((uint64_t)minilog_file_create(8 * 1024, nvpath) + 4 * 1024 - MINILOG_SIZE / 2);
     memset(log, 0, MINILOG_SIZE);
     persist(log, MINILOG_SIZE);
     return log;
