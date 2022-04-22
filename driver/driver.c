@@ -148,7 +148,7 @@ int             g_skipped = 0;
 // Info: header, footer, round, minsz
 AllocatorInfo  g_allocator_info = {-1, -1, -1, -1};
 
-std::string pool_path = "/mnt/pmem0/lap/pmdk2/";
+std::string pool_path = "/mnt/pmem0/lap/pmdk3/";
 std::string pool_name;
 #define LAYOUT    "ARCHEAPPM"
 PMEMobjpool * g_pool;
@@ -417,13 +417,13 @@ void pm_free(void* ptr) {
   pmemobj_free(&tmptr);
 }
 
-void copy_pool(std::string src, std::string dst) {
-	int pid = system(("cp "+src+" "+dst).c_str());
-  waitpid(pid, NULL, 0);
+// void copy_pool(std::string src, std::string dst) {
+// 	int pid = system(("cp "+src+" "+dst).c_str());
+//   waitpid(pid, NULL, 0);
 
-  g_pool = pmemobj_open(dst.c_str(), LAYOUT);
-  pool_name = dst;
-}
+//   g_pool = pmemobj_open(dst.c_str(), LAYOUT);
+//   pool_name = dst;
+// }
 
 void command_init(Command* cmd, const char* filename, int limit) {
   cmd->limit = limit;
@@ -456,12 +456,12 @@ void _command_next(Command* cmd, void* buf, size_t size) {
   memcpy(buf, cmd->buf + cmd->index, size);
   cmd->index += size;
   
-  copy_pool(pool_name, pool_path+get_timestamp());
+  //copy_pool(pool_name, pool_path+get_timestamp());
 }
 
 void command_next(Command* cmd, void* buf, size_t size) {
   //#### close before fork
-  pmemobj_close(g_pool);
+  //pmemobj_close(g_pool);
 
   _command_next(cmd, buf, size);
 }
