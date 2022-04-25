@@ -165,9 +165,10 @@ if __name__ == "__main__":
     crash_file = cmd[-1]
     cmd[-1] = "@@"
     minimizer = Minimizer(cmd, args.abort)
-    minimizer.minimize(crash_file, args.action_map_file, args.html)
+    res = minimizer.minimize(crash_file, args.action_map_file, args.html)
 
-    # Run to show the minimized one
-    import sys
-    sys.stderr.write("\n")
-    os.system(" ".join(args.cmd[:-1] + [crash_file, args.action_map_file]))
+    if res[0] is not None:
+        # Run to show the minimized one
+        import sys
+        sys.stderr.write("\n")
+        os.system(" ".join(args.cmd[:-1] + [crash_file, args.action_map_file]))
