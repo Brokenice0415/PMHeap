@@ -1242,26 +1242,22 @@ void fuzz_vuln(HeapManager* hmgr,
     case VULN_DOUBLE_FREE:
     break;
 
-    // case VULN_ARBITRARY_FREE: {
-    //   int index = command_next_16(cmd) % buffer->limit;
+    case VULN_ARBITRARY_FREE: {
+      int index = command_next_16(cmd) % buffer->limit;
 
-    //   if (do_action()) {
-    //     DEBUG("[VULN] Arbitrary free");
+      if (do_action()) {
+        DEBUG("[VULN] Arbitrary free");
 
-    //     BEGIN_STMT;
-    //     STMT("tmptr = pmemobj_oid((void*)(&(mr->buf[%d])))", index);
-    //     END_STMT;
+        BEGIN_STMT;
+        STMT("nvalloc_free_from((void**)&buf[%d])", index);
+        END_STMT;
 
-    //     BEGIN_STMT;
-    //     STMT("pmemobj_free(&tmptr)")
-    //     END_STMT;
-
-    //     pm_free((void*)(buffer->orig + index * sizeof(uintptr_t)));
-    //     // check_buffer_modify(buffer, false);
-    //     // check_container_modify(hmgr, false);
-    //   }
-    // }
-    case VULN_ARBITRARY_FREE:
+        nvalloc_free_from((void**)(buffer->orig + index * sizeof(uintptr_t)));
+        check_buffer_modify(buffer, false);
+        check_container_modify(hmgr, false);
+      }
+    }
+    // case VULN_ARBITRARY_FREE:
     break;
 
     default:
